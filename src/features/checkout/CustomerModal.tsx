@@ -1,7 +1,7 @@
 "use client"
 
 import { AnimatePresence, motion } from "motion/react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface CustomerModalProps {
   isOpen: boolean
@@ -14,6 +14,15 @@ const CustomerModal = ({ isOpen, onClose, onContinue }: CustomerModalProps) => {
   const [phone, setPhone] = useState("")
   const [nameError, setNameError] = useState("")
   const [phoneError, setPhoneError] = useState("")
+  const phoneInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        phoneInputRef.current?.focus()
+      }, 100)
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) {
@@ -89,7 +98,10 @@ const CustomerModal = ({ isOpen, onClose, onContinue }: CustomerModalProps) => {
                       </label>
                     </div>
                     <input
+                      ref={phoneInputRef}
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={phone}
                       onChange={(e) => {
                         setPhone(e.target.value)
