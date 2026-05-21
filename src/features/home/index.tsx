@@ -101,10 +101,10 @@ const HomePage = () => {
           >
             <Image
               src={slide.image}
+              loading="eager"
               alt={`banner-${current}`}
               fill
               className="object-cover"
-              priority={current === 0}
             />
           </motion.div>
         </AnimatePresence>
