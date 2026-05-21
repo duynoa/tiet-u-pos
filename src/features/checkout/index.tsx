@@ -1,89 +1,14 @@
 "use client"
 
+import { AnimatePresence } from "motion/react"
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useRef, useState } from "react"
-
-const products = [
-  { id: 1, image: "/product-1.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-  { id: 2, image: "/product-2.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-  { id: 3, image: "/product-3.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-  { id: 4, image: "/product-3.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-  { id: 5, image: "/product-3.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-]
-
-const ProductCard = ({ product, quantity, onDecrement, onIncrement, onRemove }: {
-  product: typeof products[0]
-  quantity: number
-  onDecrement: () => void
-  onIncrement: () => void
-  onRemove: () => void
-}) => {
-  const trackRef = useRef<HTMLDivElement>(null)
-  const [translateX, setTranslateX] = useState(0)
-  const [isRemoving, setIsRemoving] = useState(false)
-  const startXRef = useRef(0)
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    startXRef.current = e.touches[0].clientX
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    const diff = startXRef.current - e.touches[0].clientX
-    if (diff > 0) {
-      setTranslateX(-Math.min(diff, 100))
-    }
-  }
-
-  const handleTouchEnd = () => {
-    if (translateX < -60) {
-      setIsRemoving(true)
-      setTimeout(onRemove, 200)
-    } else {
-      setTranslateX(0)
-    }
-  }
-
-  if (isRemoving) return null
-
-  const formattedPrice = product.price.toLocaleString("vi-VN") + " ₫"
-
-  return (
-    <div
-      ref={trackRef}
-      className="shrink-0 relative overflow-hidden rounded-2xl transition-all duration-200"
-      style={{ transform: `translateX(${translateX}px)` }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      <div className="bg-white p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Image src={product.image} alt="product" width={200} height={200} className="w-[94px] h-[94px] object-cover rounded-lg" />
-          <div className="flex flex-col gap-3">
-            <h3 className="text-base md:text-2xl font-bold text-[#111]">{product.name}</h3>
-            <p className="text-sm md:text-xl leading-5 text-[#111]">{product.sku}</p>
-            <p className="text-base md:text-2xl leading-5 text-[#CB2527] font-semibold">{formattedPrice}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={onDecrement} className="w-9 h-9 rounded-xl bg-[#FFE0E0] flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
-            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="2" viewBox="0 0 10 2" fill="none">
-              <path d="M0.583374 0.583328H8.75004" stroke="#0B0C0C" strokeWidth="1.16667" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <span className="min-w-9 h-9 text-xl font-bold text-[#1E2939] text-center flex items-center justify-center">{quantity}</span>
-          <button onClick={onIncrement} className="w-9 h-9 rounded-xl bg-[#CB2527] flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2.91663 7H11.0833" stroke="white" strokeWidth="1.16667" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M7 2.91667V11.0833" stroke="white" strokeWidth="1.16667" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { useEffect, useState } from "react"
+import toast from "react-hot-toast"
+import { ProductCard, products } from "./ProductCard"
+import CustomerModal from "./CustomerModal"
+import PaymentModal from "./PaymentModal"
+import SuccessModal from "./SuccessModal"
 
 const Checkout = () => {
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -91,6 +16,10 @@ const Checkout = () => {
     Object.fromEntries(products.map((p) => [p.id, 1]))
   )
   const [deletedIds, setDeletedIds] = useState<number[]>([])
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+  const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "" })
 
   const visibleProducts = products.filter((p) => !deletedIds.includes(p.id))
   const totalItems = visibleProducts.reduce((sum, p) => sum + quantities[p.id], 0)
@@ -100,7 +29,13 @@ const Checkout = () => {
   const decrement = (id: number) => setQuantities((prev) => ({ ...prev, [id]: Math.max(0, prev[id] - 1) }))
   const increment = (id: number) => setQuantities((prev) => ({ ...prev, [id]: prev[id] + 1 }))
   const removeProduct = (id: number) => setDeletedIds((prev) => [...prev, id])
-  const clearAll = () => setDeletedIds(products.map((p) => p.id))
+  const clearAll = () => {
+    setDeletedIds(products.map((p) => p.id))
+    toast.success("Đã xóa tất cả sản phẩm", {
+      duration: 3000,
+      style: { background: "#22C55E", color: "#fff", fontWeight: "bold" },
+    })
+  }
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -127,8 +62,8 @@ const Checkout = () => {
           </svg>
           <span className="text-white text-base md:text-[32px] font-bold">Thoát</span>
         </Link>
-        <Link href='/'>
-          <Image src="/logo.webp" alt="logo" width={300} height={300} className="w-[100px] md:w-[179px] object-cover" />
+        <Link href='/' className="absolute left-1/2 -translate-x-1/2">
+          <Image src="/logo.webp" alt="logo" width={300} height={300} className="w-[100px] md:w-[200px] object-cover" />
         </Link>
         <div className="flex flex-col items-end gap-0 md:gap-3">
           <p className="text-white text-base md:text-[32px] font-bold">{timeString}</p>
@@ -138,17 +73,20 @@ const Checkout = () => {
 
       {/* Main Content */}
       <main className="flex-1 min-h-0 h-full w-full p-4 md:p-6">
-        {/* <div className="h-full flex flex-col justify-center items-center gap-4">
-          <Image src="/no-card.webp" alt="banner" width={500} height={500} className="w-[360px] h-[360px] object-cover" />
-          <h3 className="text-[40px] text-[#111] font-bold">Chưa có sản phẩm nào</h3>
-          <p className="text-[#555] text-[32px] font-medium">Hãy quét sản phẩm dưới camera góc phải để order nhé !</p>
-        </div> */}
+        {visibleProducts.length === 0 ? (
+          <div className="h-full flex flex-col justify-center items-center gap-4">
+            <Image src="/no-card.webp" alt="banner" width={500} height={500} className="w-[360px] h-[360px] object-cover" />
+            <h3 className="text-[40px] text-[#111] font-bold">Chưa có sản phẩm nào</h3>
+            <p className="text-[#555] text-[32px] font-medium">Hãy quét sản phẩm dưới camera góc phải để order nhé !</p>
+          </div>
+        ) : (
         <div className="flex flex-col gap-3 h-full">
           <div className="flex items-center justify-between">
             <p className="text-xl text-[#555]">Trượt để xóa</p>
             <button onClick={clearAll} className="text-xl font-semibold text-[#F25B5D] hover:text-white hover:bg-[#F25B5D] rounded-2xl px-4 py-2 cursor-pointer transition-all duration-300">Xóa tất cả</button>
           </div>
-          <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
+          <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] scrollbar-none">
+            <AnimatePresence>
             {visibleProducts.map((product) => (
               <ProductCard
                 key={product.id}
@@ -159,8 +97,10 @@ const Checkout = () => {
                 onRemove={() => removeProduct(product.id)}
               />
             ))}
+          </AnimatePresence>
           </div>
         </div>
+        )}
       </main>
 
       {/* Footer - Fixed */}
@@ -180,11 +120,46 @@ const Checkout = () => {
           <button className="py-2 md:py-7 px-2 md:px-4 rounded-md md:rounded-2xl border-2 border-[#959DA9] text-base md:text-4xl font-bold text-[#555]">
             Hủy đơn
           </button>
-          <button className="py-2 md:py-7 px-2 md:px-4 rounded-md md:rounded-2xl bg-[#959DA9] text-base md:text-4xl font-bold text-white">
+          <button
+            onClick={() => totalItems > 0 && setIsCustomerModalOpen(true)}
+            className={`py-2 md:py-7 px-2 md:px-4 rounded-md md:rounded-2xl text-base md:text-4xl font-bold ${totalItems > 0 ? "bg-[#CB2527] text-white cursor-pointer" : "bg-[#959DA9] text-white"}`}
+          >
             Thanh toán
           </button>
         </div>
       </footer>
+
+      <CustomerModal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        onContinue={(name, phone) => {
+          setCustomerInfo({ name, phone })
+          setIsPaymentModalOpen(true)
+        }}
+      />
+
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        totalPrice={totalPrice}
+        totalItems={totalItems}
+        orderItems={visibleProducts.map((p) => ({ id: p.id, quantity: quantities[p.id] }))}
+        customerName={customerInfo.name}
+        customerPhone={customerInfo.phone}
+        onPaymentSuccess={(name, price) => {
+          setIsCustomerModalOpen(false)
+          setIsPaymentModalOpen(false)
+          setIsSuccessModalOpen(true)
+          setCustomerInfo({ name, phone: "" })
+        }}
+      />
+
+      <SuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        customerName={customerInfo.name}
+        totalPrice={totalPrice}
+      />
     </div>
   )
 }

@@ -1,0 +1,149 @@
+"use client"
+
+import { AnimatePresence, motion } from "motion/react"
+import Image from "next/image"
+import { products } from "./ProductCard"
+
+interface OrderItem {
+  id: number
+  quantity: number
+}
+
+interface PaymentModalProps {
+  isOpen: boolean
+  onClose: () => void
+  totalPrice: number
+  totalItems: number
+  orderItems: OrderItem[]
+  customerName: string
+  customerPhone: string
+  onPaymentSuccess: (customerName: string, totalPrice: number) => void
+}
+
+const PaymentModal = ({
+  isOpen,
+  onClose,
+  totalPrice,
+  totalItems,
+  orderItems,
+  customerName,
+  customerPhone,
+  onPaymentSuccess,
+}: PaymentModalProps) => {
+
+  const handlePayment = () => {
+    onPaymentSuccess(customerName, totalPrice)
+  }
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50"
+            onClick={onClose}
+          />
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+          >
+            <div
+              className="flex flex-col gap-8 bg-white px-10 py-12 rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="relative">
+                <button onClick={onClose} className="absolute top-0 left-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <path d="M7.08325 20.4572L32.0833 20.4572" stroke="#111111" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M17.1663 30.4978L7.08293 20.4578L17.1663 10.4162" stroke="#111111" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <h2 className="text-[#111] text-2xl md:text-4xl font-bold capitalize text-center">Thanh toán đơn hàng</h2>
+              </div>
+              <div className="grid grid-cols-3">
+                <div className="col-span-2 px-5 py-3 flex flex-col gap-4 border-r border-[#E9E9E9]">
+                  <div className="flex flex-col gap-3">
+                    <h3 className="px-3 py-2.5 text-[#111] text-2xl font-bold capitalize">Hóa đơn</h3>
+                    <div className="px-3 pt-2 pb-8 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-[#262626] text-lg font-semibold">Bánh Oreo Vị Dâu 119g</p>
+                          <p className="text-[#888] text-lg">22.000 ₫ × 1</p>
+                        </div>
+                        <p className="text-[#CB2527] text-lg font-bold">22.000 ₫</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-[#262626] text-lg font-semibold">Bánh Oreo Vị Dâu 119g</p>
+                          <p className="text-[#888] text-lg">22.000 ₫ × 1</p>
+                        </div>
+                        <p className="text-[#CB2527] text-lg font-bold">22.000 ₫</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-[#262626] text-lg font-semibold">Bánh Oreo Vị Dâu 119g</p>
+                          <p className="text-[#888] text-lg">22.000 ₫ × 1</p>
+                        </div>
+                        <p className="text-[#CB2527] text-lg font-bold">22.000 ₫</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-3 flex flex-col gap-3 border-t border-[#CECECE] border-dashed">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[#262626] text-lg font-semibold">Số sản phẩm</p>
+                      <p className="text-[#262626] text-lg font-semibold">2 sản phẩm</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[#262626] text-lg font-semibold">Thuế</p>
+                      <p className="text-[#262626] text-lg font-semibold">2 sản phẩm</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[#111] text-3xl font-bold">Tổng</p>
+                      <p className="text-[#CB2527] text-3xl font-bold">57.000 ₫</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-5 py-3 flex flex-col items-center gap-6">
+                  <div className="flex flex-col justify-center items-center gap-2">
+                    <p className="text-[#262626] text-base font-semibold">Quét QR  để thanh toán</p>
+                    <p className="text-[#CB2527] text-2xl font-bold">57.000 ₫</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="relative p-3 bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.10),0_2px_4px_-2px_rgba(0,0,0,0.10)] rounded-xl">
+                      <Image src="/vien-QR.webp" alt="QR Code" width={200} height={200} className="size-full object-cover absolute inset-0 pointer-events-none" />
+                      <Image src="/QR.png" alt="QR Code" width={200} height={200} className="size-[147px] object-cover" />
+                    </div>
+                    <p className="text-[#555] text-sm font-semibold">
+                      QR làm mới sau{' '}
+                      <span className="text-[#CB2527] text-sm font-bold">60s</span>
+                    </p>
+                  </div>
+                  <p className="px-3 py-2 text-[#0285C7] text-sm font-semibold bg-[#DAEDEF] rounded-2xl">
+                    Dùng app ngân hàng hoặc ví điện tử quét mã QR
+                  </p>
+                  {/* <button
+                    onClick={handlePayment}
+                    className="w-full py-4 px-6 rounded-2xl bg-[#CB2527] text-white text-xl md:text-2xl font-bold cursor-pointer hover:bg-[#CB2527]/80 transition-colors mt-4"
+                  >
+                    Xác nhận thanh toán
+                  </button> */}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )
+      }
+    </AnimatePresence >
+  )
+}
+
+export default PaymentModal

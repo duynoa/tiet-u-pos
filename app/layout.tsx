@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, Meow_Script, Montserrat } from "next/font/google";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -35,7 +36,7 @@ export default function RootLayout({
       lang="vi"
       className={`${manrope.variable} ${meowScript.variable} ${montserrat.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">{children}<Toaster /></body>
     </html>
   );
 }
