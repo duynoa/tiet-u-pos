@@ -1,22 +1,15 @@
 "use client"
 
+import { CartItem } from "@/src/services"
+import { animate, motion, useMotionValue, useTransform } from "motion/react"
 import Image from "next/image"
-import { motion, useMotionValue, useTransform, animate } from "motion/react"
 import toast from "react-hot-toast"
 
 const DELETE_THRESHOLD = -80
 const SWIPE_RANGE = 100
 
-const products = [
-  { id: 1, image: "/product-1.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-  { id: 2, image: "/product-2.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-  { id: 3, image: "/product-3.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-  { id: 4, image: "/product-2.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-  { id: 5, image: "/product-1.webp", name: "Sữa Tươi Vinamilk 1L", sku: "VMK-1L · 8934822500120", price: 35000 },
-]
-
 const ProductCard = ({ product, quantity, onDecrement, onIncrement, onRemove }: {
-  product: typeof products[0]
+  product: CartItem
   quantity: number
   onDecrement: () => void
   onIncrement: () => void
@@ -33,10 +26,7 @@ const ProductCard = ({ product, quantity, onDecrement, onIncrement, onRemove }: 
       animate(x, -window.innerWidth, { type: "spring", stiffness: 200, damping: 25 })
       setTimeout(() => {
         onRemove()
-        toast.success(`Đã xóa ${product.name}`, {
-          duration: 3000,
-          style: { background: "#22C55E", color: "#fff", fontWeight: "bold" },
-        })
+        toast.success(`Đã xóa ${product.name}`)
       }, 350)
     } else {
       animate(x, 0, { type: "spring", stiffness: 400, damping: 28 })
@@ -121,4 +111,4 @@ const ProductCard = ({ product, quantity, onDecrement, onIncrement, onRemove }: 
   )
 }
 
-export { ProductCard, products }
+export { ProductCard }

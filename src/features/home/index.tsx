@@ -1,38 +1,42 @@
 "use client"
 
+import { useGetCheckBranchDetail, useGetInfoSettings, useGetListSlide } from "@/src/services"
+import { AnimatePresence, motion } from "motion/react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "motion/react"
+import { useEffect, useState } from "react"
 
-const slides = [
-  {
-    title: "Ngọt ngào từng khoảnh khắc",
-    description: "Từ sinh nhật, kỷ niệm đến tiệc nhỏ gia đình — Tiết Ú luôn có mẫu bánh phù hợp cho bạn",
-    image: "/banner-1.webp",
-  },
-  {
-    title: "Trao vị ngọt, gửi yêu thương",
-    description:
-      "Những chiếc bánh được chuẩn bị chỉn chu để ngày vui của bạn thêm trọn vẹn",
-    image: "/banner-2.webp",
-  },
-]
+const STORAGE_KEY = "branch_id"
 
-const HomePage = () => {
+const HomePage = ({ branchId }: { branchId: string }) => {
   const router = useRouter()
   const [current, setCurrent] = useState(0)
-
-  const slide = slides[current]
+  const { data: branchData } = useGetCheckBranchDetail(branchId)
+  const { data: slidesData } = useGetListSlide()
+  const { data: settingsData } = useGetInfoSettings()
+  console.log(settingsData)
+  
+  const slides = slidesData ?? []
+  const slide = slides[current] ?? slides[0]
 
   useEffect(() => {
+    if (!branchId) return
+    if (branchData && !branchData.isError) {
+      localStorage.setItem(STORAGE_KEY, branchId)
+    }
+  }, [branchData, branchId])
+
+  useEffect(() => {
+    if (slides.length <= 1) return
     const timer = setInterval(() => {
       setCurrent((prev) => (prev + 1) % slides.length)
     }, 10000)
     return () => clearInterval(timer)
-  }, [])
+  }, [slides.length])
 
-  const titleChars = slide.title.split("")
+  if (!slides.length) return null
+
+  const titleChars = (slide?.title ?? "").split("")
 
   return (
     <div
@@ -41,7 +45,7 @@ const HomePage = () => {
       <div className="pt-[20%] flex flex-col gap-9 items-center z-10">
         <h2 className="text-8xl text-white font-script text-center flex flex-wrap justify-center" key={current}>
           <AnimatePresence mode="popLayout">
-            {titleChars.map((char, i) => (
+            {titleChars.map((char: string, i: number) => (
               <motion.span
                 key={`${char}-${i}`}
                 initial={{ opacity: 0, y: 40, rotateX: -90 }}
@@ -68,17 +72,17 @@ const HomePage = () => {
             transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
             style={{ display: "block" }}
           >
-            {slide.description}
+            {slide?.content}
           </motion.span>
         </p>
         <button
-          onClick={() => router.push("/thanh-toan")}
+          onClick={() => router.push(`/thanh-toan/${branchId}`)}
           className="px-8 py-5 border border-white text-white text-4xl font-medium rounded-full backdrop-blur-xs bg-white/20 shadow-[0_4px_6.1px_0_rgba(255,255,255,0.23)_inset,7px_63px_18px_0_rgba(0,0,0,0.00),4px_40px_16px_0_rgba(0,0,0,0.00),2px_23px_14px_0_rgba(0,0,0,0.02),1px_10px_10px_0_rgba(0,0,0,0.03),0_3px_6px_0_rgba(0,0,0,0.03)] cursor-pointer"
         >
           Thanh toán ngay
         </button>
         <div className="flex items-center gap-3 mt-4">
-          {slides.map((_, i) => (
+          {slides.map((_: any, i: number) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}
@@ -100,7 +104,7 @@ const HomePage = () => {
             className="absolute inset-0"
           >
             <Image
-              src={slide.image}
+              src={slide?.image ?? ""}
               loading="eager"
               alt={`banner-${current}`}
               fill

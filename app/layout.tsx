@@ -1,7 +1,9 @@
+import QueryProvider from "@/src/providers/query-provider";
 import type { Metadata } from "next";
 import { Manrope, Meow_Script, Montserrat } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
+import { toastConfig } from "@/src/config/toast";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -36,7 +38,12 @@ export default function RootLayout({
       lang="vi"
       className={`${manrope.variable} ${meowScript.variable} ${montserrat.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}<Toaster /></body>
+      <body className="min-h-full flex flex-col">
+        <QueryProvider>
+          {children}
+        </QueryProvider>
+        <Toaster toastOptions={toastConfig} />
+      </body>
     </html>
   );
 }

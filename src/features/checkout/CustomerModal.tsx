@@ -1,23 +1,55 @@
 "use client"
 
+import { OrderData, PaymentInfo, useCreateClient, useCreateOrder, useGetCheckPhone } from "@/src/services"
+import { useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
+import toast from "react-hot-toast"
 
 interface CustomerModalProps {
   isOpen: boolean
   onClose: () => void
-  onContinue: (name: string, phone: string) => void
+  onContinue: (name: string, phone: string, orderData: OrderData, paymentInfo: PaymentInfo | null) => void
+  branchId: string
+  orderItems: { id: number; quantity: number}[]
 }
 
-const CustomerModal = ({ isOpen, onClose, onContinue }: CustomerModalProps) => {
+const VIETNAM_PHONE_REGEX = /^0[0-9]{9}$/
+
+const CustomerModal = ({ isOpen, onClose, onContinue, branchId, orderItems }: CustomerModalProps) => {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [nameError, setNameError] = useState("")
   const [phoneError, setPhoneError] = useState("")
   const phoneInputRef = useRef<HTMLInputElement>(null)
+  const userHasEditedName = useRef(false)
+  const isPhoneValid = VIETNAM_PHONE_REGEX.test(phone)
+  const { data: checkPhoneData } = useGetCheckPhone(isPhoneValid ? phone : "")
+  const { mutate: createClient, isPending: isCreating } = useCreateClient()
+  const { mutate: createOrder, isPending: isCreatingOrder } = useCreateOrder()
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (!isPhoneValid) {
+      if (!userHasEditedName.current) setName("")
+      return
+    }
+    if (!checkPhoneData) {
+      if (!userHasEditedName.current) setName("")
+      return
+    }
+    if ("success" in checkPhoneData && checkPhoneData.success === false && !userHasEditedName.current) {
+      setName("")
+      return
+    }
+    if ("data" in checkPhoneData && checkPhoneData.data?.fullname && !userHasEditedName.current) {
+      setName(checkPhoneData.data.fullname)
+    }
+  }, [checkPhoneData, phone, isPhoneValid])
 
   useEffect(() => {
     if (isOpen) {
+      userHasEditedName.current = false
       setTimeout(() => {
         phoneInputRef.current?.focus()
       }, 100)
@@ -31,9 +63,15 @@ const CustomerModal = ({ isOpen, onClose, onContinue }: CustomerModalProps) => {
         setPhone("")
         setNameError("")
         setPhoneError("")
+        userHasEditedName.current = false
       }, 100)
     }
   }, [isOpen])
+
+  const isExistingCustomer =
+    checkPhoneData &&
+    "data" in checkPhoneData &&
+    !!checkPhoneData.data?.fullname
 
   const handleContinue = () => {
     let valid = true
@@ -50,7 +88,55 @@ const CustomerModal = ({ isOpen, onClose, onContinue }: CustomerModalProps) => {
       setPhoneError("")
     }
     if (!valid) return
-    onContinue(name, phone)
+
+    if (isExistingCustomer) {
+      userHasEditedName.current = false
+      createOrder(
+        { phone, branch_id: branchId, items: orderItems },
+        {
+          onSuccess: (data) => {
+            const apiData = data?.data ?? data
+            const orderData: OrderData = {
+              id: apiData?.id ?? apiData?.order_id,
+              items: apiData?.items ?? orderItems,
+            }
+            const paymentInfo: PaymentInfo | null = apiData?.data ?? null
+            onContinue(name, phone, orderData, paymentInfo)
+          },
+          onError: () => {
+            toast.error("Tạo đơn hàng thất bại. Vui lòng thử lại.")
+          },
+        }
+      )
+      return
+    }
+
+    createClient(
+      { phone, fullname: name, branch_id: branchId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["check-phone", phone] })
+          userHasEditedName.current = false
+          createOrder(
+            { phone, branch_id: branchId, items: orderItems },
+            {
+              onSuccess: (data) => {
+                const apiData = data?.data ?? data
+                const orderData: OrderData = {
+                  id: apiData?.id ?? apiData?.order_id,
+                  items: apiData?.items ?? orderItems,
+                }
+                const paymentInfo: PaymentInfo | null = apiData?.info_payment ?? null
+                onContinue(name, phone, orderData, paymentInfo)
+              },
+              onError: () => {
+                toast.error("Tạo đơn hàng thất bại. Vui lòng thử lại.")
+              },
+            }
+          )
+        },
+      }
+    )
   }
 
   return (
@@ -110,9 +196,11 @@ const CustomerModal = ({ isOpen, onClose, onContinue }: CustomerModalProps) => {
                       placeholder="Nhập số điện thoại"
                       className={`w-full px-4 py-3 md:py-4 rounded-lg border text-lg md:text-2xl text-[#111] placeholder:text-[#B0B0B0] focus:outline-none focus:border-[#CB2527] transition-colors ${phoneError ? "border-[#CB2527] bg-red-50" : "border-[#C7C7CC]"}`}
                     />
-                    {phoneError && (
+                    {phoneError ? (
                       <p className="text-[#CB2527] text-sm md:text-lg font-medium">{phoneError}</p>
-                    )}
+                    ) : phone.length > 0 && !isPhoneValid ? (
+                      <p className="text-[#CB2527] text-sm md:text-lg font-medium">Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0</p>
+                    ) : null}
                   </div>
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-2">
@@ -127,6 +215,7 @@ const CustomerModal = ({ isOpen, onClose, onContinue }: CustomerModalProps) => {
                       type="text"
                       value={name}
                       onChange={(e) => {
+                        userHasEditedName.current = true
                         setName(e.target.value)
                         setNameError("")
                       }}
@@ -142,9 +231,10 @@ const CustomerModal = ({ isOpen, onClose, onContinue }: CustomerModalProps) => {
                 <div className="flex gap-3 md:gap-6">
                   <button
                     onClick={handleContinue}
-                    className='flex-1 py-3 md:py-4 rounded-xl text-lg md:text-[32px] font-semibold cursor-pointer transition-colors bg-[#CB2527] text-white hover:bg-[#CB2527]/80'
+                    disabled={isCreating || isCreatingOrder}
+                    className='flex-1 py-3 md:py-4 rounded-xl text-lg md:text-[32px] font-semibold cursor-pointer transition-colors bg-[#CB2527] text-white hover:bg-[#CB2527]/80 disabled:opacity-60 disabled:cursor-not-allowed'
                   >
-                    Tiếp tục
+                    {isCreating || isCreatingOrder ? "Đang xử lý..." : "Tiếp tục"}
                   </button>
                 </div>
               </div>
