@@ -6,14 +6,14 @@ import { AnimatePresence } from "motion/react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import toast from "react-hot-toast"
 import Clock from "./Clock"
 import CustomerModal from "./CustomerModal"
 import PaymentModal from "./PaymentModal"
 import { ProductCard } from "./ProductCard"
 import QRScanner from "./QRScanner"
-import SuccessModal from "./SuccessModal"
+import SuccessModal, { BillPrintData } from "./SuccessModal"
 
 const Checkout = ({ branchId }: { branchId: string }) => {
   const router = useRouter()
@@ -26,7 +26,8 @@ const Checkout = ({ branchId }: { branchId: string }) => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
   const [successTotalPrice, setSuccessTotalPrice] = useState(0) // thành tiền (đã VAT)
-  const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "" })
+  const billDataRef = useRef<BillPrintData | null>(null)
+  const [billData, setBillData] = useState<BillPrintData | null>(null)
   const [orderData, setOrderData] = useState<OrderData | null>(null)
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null)
 
@@ -105,9 +106,25 @@ const Checkout = ({ branchId }: { branchId: string }) => {
   }
 
   const handleCustomerContinue = (name: string, phone: string, orderData: OrderData, paymentInfo: PaymentInfo | null) => {
-    setCustomerInfo({ name, phone })
     setOrderData(orderData)
     setPaymentInfo(paymentInfo)
+    billDataRef.current = {
+      orderId: paymentInfo?.id ?? orderData.id,
+      items: visibleProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        quantity: quantities[p.id],
+        price: p.price,
+        sku: p.sku,
+      })),
+      totalPrice,
+      vatAmount,
+      vatRate: settingsData?.vat ?? "0",
+      totalWithVat,
+      customerName: name,
+      customerPhone: phone,
+      zaloOaImage: settingsData?.zalo_oa_image,
+    }
     setIsPaymentModalOpen(true)
   }
 
@@ -118,21 +135,23 @@ const Checkout = ({ branchId }: { branchId: string }) => {
   }, [])
 
   const handleSuccessModalClose = useCallback(() => {
+    setCartItems([])
+    setQuantities({})
+    setDeletedIds([])
     setIsSuccessModalOpen(false)
   }, [])
 
-// Lắng nghe event từ server — đóng CustomerModal/PaymentModal, mở SuccessModal
+  // Lắng nghe event từ server — đóng CustomerModal/PaymentModal, mở SuccessModal
   useEffect(() => {
     if (!socket) return
     const handleMessage = (payload: unknown) => {
       const msg = payload as { data?: string | number }
+      console.log(msg)
       if (msg.data !== undefined && paymentInfo?.id !== undefined && msg.data === paymentInfo.id) {
         setIsCustomerModalOpen(false)
         setIsPaymentModalOpen(false)
         setSuccessTotalPrice(totalWithVat)
-        setCartItems([])
-        setQuantities({})
-        setDeletedIds([])
+        setBillData(billDataRef.current)
         setIsSuccessModalOpen(true)
       }
     }
@@ -140,7 +159,7 @@ const Checkout = ({ branchId }: { branchId: string }) => {
     return () => {
       socket.off("payment_order", handleMessage)
     }
-  }, [socket, paymentInfo?.id])
+  }, [socket, paymentInfo?.id, totalWithVat])
 
   return (
     <>
@@ -232,6 +251,7 @@ const Checkout = ({ branchId }: { branchId: string }) => {
         </footer>
 
         <CustomerModal
+          key={isCustomerModalOpen ? "open" : "closed"}
           isOpen={isCustomerModalOpen}
           onClose={() => { setIsCustomerModalOpen(false); setOrderData(null); setPaymentInfo(null) }}
           branchId={branchId}
@@ -254,8 +274,8 @@ const Checkout = ({ branchId }: { branchId: string }) => {
         <SuccessModal
           isOpen={isSuccessModalOpen}
           onClose={handleSuccessModalClose}
-          customerName={customerInfo.name}
           totalPrice={successTotalPrice}
+          billData={billData ?? undefined}
         />
       </div>
     </>
