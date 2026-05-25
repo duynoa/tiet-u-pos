@@ -1,6 +1,7 @@
 "use client"
 
 import { useSocket } from "@/src/providers/socket-provider"
+import { BranchGate } from "@/src/components/BranchGate"
 import { CartItem, Item, OrderData, PaymentInfo, useGetInfoSettings, useGetItems } from "@/src/services"
 import { AnimatePresence } from "motion/react"
 import Image from "next/image"
@@ -162,7 +163,7 @@ const Checkout = ({ branchId }: { branchId: string }) => {
   }, [socket, paymentInfo?.id, totalWithVat])
 
   return (
-    <>
+    <BranchGate branchId={branchId}>
       <QRScanner
         onItemFound={handleItemFound}
       />
@@ -278,7 +279,7 @@ const Checkout = ({ branchId }: { branchId: string }) => {
           billData={billData ?? undefined}
         />
       </div>
-    </>
+    </BranchGate>
   )
 }
 

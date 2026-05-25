@@ -30,7 +30,6 @@ const PaymentModal = memo(function PaymentModal({
 }: PaymentModalProps) {
   const { mutate: deleteOrder } = useDeleteOrder()
   const displayItems = orderData?.items ?? []
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -134,7 +133,7 @@ const PaymentModal = memo(function PaymentModal({
                   <div className="flex flex-col items-center gap-4">
                     <div className="relative bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.10),0_2px_4px_-2px_rgba(0,0,0,0.10)] rounded-xl">
                       <Image src="/vien-QR.webp" alt="QR Code" width={200} height={200} className="size-full object-cover absolute inset-0 pointer-events-none" />
-                      <img src={paymentInfo?.info_payment?.qr ?? ""} alt="QR Code" width={200} height={200} className="size-[170px] object-cover rounded-xl" />
+                      <img src={paymentInfo?.info_payment?.qr ?? paymentInfo?.qr ?? ""} alt="QR Code" width={200} height={200} className="size-[170px] object-cover rounded-xl" />
                     </div>
                     <p className="px-3 py-2 text-[#0285C7] text-sm font-semibold bg-[#DAEDEF] rounded-2xl">
                       Dùng app ngân hàng hoặc ví điện tử quét mã QR
