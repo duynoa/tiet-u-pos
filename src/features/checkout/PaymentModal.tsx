@@ -10,10 +10,11 @@ interface PaymentModalProps {
   onClose: () => void
   totalPrice: number
   totalItems: number
+  vatAmount: number
+  vatRate: string
+  totalWithVat: number
   orderData: OrderData | null
   paymentInfo: PaymentInfo | null
-  customerName: string
-  onPaymentSuccess: (customerName: string, totalPrice: number) => void
 }
 
 const PaymentModal = memo(function PaymentModal({
@@ -21,17 +22,14 @@ const PaymentModal = memo(function PaymentModal({
   onClose,
   totalPrice,
   totalItems,
+  vatAmount,
+  vatRate,
+  totalWithVat,
   orderData,
   paymentInfo,
-  customerName,
-  onPaymentSuccess,
 }: PaymentModalProps) {
   const { mutate: deleteOrder } = useDeleteOrder()
   const displayItems = orderData?.items ?? []
-
-  const handlePayment = () => {
-    onPaymentSuccess(customerName, totalPrice)
-  }
 
   return (
     <AnimatePresence>
@@ -41,8 +39,13 @@ const PaymentModal = memo(function PaymentModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50"
-            onClick={onClose}
+            className="fixed inset-0 bg-[#D4D2D287] backdrop-blur-sm z-80"
+            onClick={() => {
+              if (paymentInfo?.id) {
+                deleteOrder(paymentInfo.id)
+              }
+              onClose()
+            }}
           />
 
           <motion.div
@@ -50,7 +53,7 @@ const PaymentModal = memo(function PaymentModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            className="fixed inset-0 z-80 flex items-center justify-center p-4 pointer-events-none"
           >
             <div
               className="flex flex-col gap-8 bg-white px-10 py-12 rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto pointer-events-auto"
@@ -109,8 +112,16 @@ const PaymentModal = memo(function PaymentModal({
                       <p className="text-[#262626] text-lg font-semibold">{totalItems} sản phẩm</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-[#111] text-3xl font-bold">Tổng</p>
-                      <p className="text-[#CB2527] text-3xl font-bold">{totalPrice.toLocaleString("vi-VN")} ₫</p>
+                      <p className="text-[#262626] text-lg font-semibold">Tổng tiền</p>
+                      <p className="text-[#262626] text-lg font-semibold">{totalPrice.toLocaleString("vi-VN")} ₫</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[#262626] text-lg font-semibold">Tiền VAT ({vatRate}%)</p>
+                      <p className="text-[#262626] text-lg font-semibold">{vatAmount.toLocaleString("vi-VN")} ₫</p>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-[#CECECE] pt-2">
+                      <p className="text-[#111] text-3xl font-bold">Thành tiền</p>
+                      <p className="text-[#CB2527] text-3xl font-bold">{totalWithVat.toLocaleString("vi-VN")} ₫</p>
                     </div>
                   </div>
                 </div>
@@ -118,12 +129,12 @@ const PaymentModal = memo(function PaymentModal({
                 <div className="px-5 py-3 flex flex-col items-center gap-6">
                   <div className="flex flex-col justify-center items-center gap-2">
                     <p className="text-[#262626] text-base font-semibold">Quét QR để thanh toán</p>
-                    <p className="text-[#CB2527] text-2xl font-bold">{totalPrice.toLocaleString("vi-VN")} ₫</p>
+                    <p className="text-[#CB2527] text-2xl font-bold">{totalWithVat.toLocaleString("vi-VN")} ₫</p>
                   </div>
                   <div className="flex flex-col items-center gap-4">
                     <div className="relative bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.10),0_2px_4px_-2px_rgba(0,0,0,0.10)] rounded-xl">
                       <Image src="/vien-QR.webp" alt="QR Code" width={200} height={200} className="size-full object-cover absolute inset-0 pointer-events-none" />
-                      <Image src={paymentInfo?.info_payment?.qr ?? ""} alt="QR Code" width={200} height={200} className="size-[170px] object-cover rounded-xl" />
+                      <img src={paymentInfo?.info_payment?.qr ?? ""} alt="QR Code" width={200} height={200} className="size-[170px] object-cover rounded-xl" />
                     </div>
                     <p className="px-3 py-2 text-[#0285C7] text-sm font-semibold bg-[#DAEDEF] rounded-2xl">
                       Dùng app ngân hàng hoặc ví điện tử quét mã QR

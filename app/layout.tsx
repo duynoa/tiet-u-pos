@@ -1,4 +1,5 @@
 import QueryProvider from "@/src/providers/query-provider";
+import { AppSocketProvider } from "@/src/providers/app-socket-provider";
 import type { Metadata } from "next";
 import { Manrope, Meow_Script, Montserrat } from "next/font/google";
 import { Toaster } from "react-hot-toast";
@@ -40,7 +41,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <QueryProvider>
-          {children}
+          <AppSocketProvider>
+            {children}
+          </AppSocketProvider>
         </QueryProvider>
         <Toaster toastOptions={toastConfig} />
       </body>

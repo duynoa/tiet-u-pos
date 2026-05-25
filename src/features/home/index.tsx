@@ -1,28 +1,26 @@
 "use client"
 
-import { useGetCheckBranchDetail, useGetInfoSettings, useGetListSlide } from "@/src/services"
+import { useGetCheckBranchDetail, useGetListSlide } from "@/src/services"
 import { AnimatePresence, motion } from "motion/react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
-const STORAGE_KEY = "branch_id"
+const STORAGE_KEY = "branch"
 
 const HomePage = ({ branchId }: { branchId: string }) => {
   const router = useRouter()
   const [current, setCurrent] = useState(0)
   const { data: branchData } = useGetCheckBranchDetail(branchId)
   const { data: slidesData } = useGetListSlide()
-  const { data: settingsData } = useGetInfoSettings()
-  console.log(settingsData)
-  
+
   const slides = slidesData ?? []
   const slide = slides[current] ?? slides[0]
 
   useEffect(() => {
     if (!branchId) return
     if (branchData && !branchData.isError) {
-      localStorage.setItem(STORAGE_KEY, branchId)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(branchData))
     }
   }, [branchData, branchId])
 
@@ -34,7 +32,7 @@ const HomePage = ({ branchId }: { branchId: string }) => {
     return () => clearInterval(timer)
   }, [slides.length])
 
-  if (!slides.length) return null
+  // if (!slides.length) return null
 
   const titleChars = (slide?.title ?? "").split("")
 

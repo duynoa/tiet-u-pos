@@ -1,6 +1,7 @@
 "use client"
 
-import { CartItem, Item, OrderData, PaymentInfo, useGetItems } from "@/src/services"
+import { useSocket } from "@/src/providers/socket-provider"
+import { CartItem, Item, OrderData, PaymentInfo, useGetInfoSettings, useGetItems } from "@/src/services"
 import { AnimatePresence } from "motion/react"
 import Image from "next/image"
 import Link from "next/link"
@@ -24,10 +25,13 @@ const Checkout = ({ branchId }: { branchId: string }) => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+  const [successTotalPrice, setSuccessTotalPrice] = useState(0) // thành tiền (đã VAT)
   const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "" })
   const [orderData, setOrderData] = useState<OrderData | null>(null)
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null)
 
+  const { socket } = useSocket()
+  const { data: settingsData } = useGetInfoSettings()
   const { data: foundItem, isSuccess, isError } = useGetItems(
     branchId,
     pendingId ?? 0,
@@ -71,7 +75,12 @@ const Checkout = ({ branchId }: { branchId: string }) => {
   const visibleProducts = cartItems.filter((p) => !deletedIds.includes(p.id))
   const totalItems = visibleProducts.reduce((sum, p) => sum + quantities[p.id], 0)
   const totalPrice = visibleProducts.reduce((sum, p) => sum + p.price * quantities[p.id], 0)
-  const formattedPrice = totalPrice.toLocaleString("vi-VN") + " ₫"
+  const vatRate = settingsData?.vat ? parseFloat(settingsData.vat) : 0
+  const vatAmount = Math.round(totalPrice * vatRate / 100)
+  const totalWithVat = totalPrice + vatAmount
+  const formattedPrice = totalWithVat.toLocaleString("vi-VN") + " ₫"
+  const formattedVat = vatAmount.toLocaleString("vi-VN") + " ₫"
+  const formattedSubtotal = totalPrice.toLocaleString("vi-VN") + " ₫"
 
   const decrement = (id: number) => setQuantities((prev) => ({ ...prev, [id]: Math.max(0, prev[id] - 1) }))
   const increment = (id: number) => setQuantities((prev) => ({ ...prev, [id]: prev[id] + 1 }))
@@ -95,13 +104,6 @@ const Checkout = ({ branchId }: { branchId: string }) => {
     router.push(`/${branchId}`)
   }
 
-  const handlePaymentSuccess = useCallback((name: string) => {
-    setIsCustomerModalOpen(false)
-    setIsPaymentModalOpen(false)
-    setIsSuccessModalOpen(true)
-    setCustomerInfo({ name, phone: "" })
-  }, [])
-
   const handleCustomerContinue = (name: string, phone: string, orderData: OrderData, paymentInfo: PaymentInfo | null) => {
     setCustomerInfo({ name, phone })
     setOrderData(orderData)
@@ -114,6 +116,31 @@ const Checkout = ({ branchId }: { branchId: string }) => {
     setOrderData(null)
     setPaymentInfo(null)
   }, [])
+
+  const handleSuccessModalClose = useCallback(() => {
+    setIsSuccessModalOpen(false)
+  }, [])
+
+// Lắng nghe event từ server — đóng CustomerModal/PaymentModal, mở SuccessModal
+  useEffect(() => {
+    if (!socket) return
+    const handleMessage = (payload: unknown) => {
+      const msg = payload as { data?: string | number }
+      if (msg.data !== undefined && paymentInfo?.id !== undefined && msg.data === paymentInfo.id) {
+        setIsCustomerModalOpen(false)
+        setIsPaymentModalOpen(false)
+        setSuccessTotalPrice(totalWithVat)
+        setCartItems([])
+        setQuantities({})
+        setDeletedIds([])
+        setIsSuccessModalOpen(true)
+      }
+    }
+    socket.on("payment_order", handleMessage)
+    return () => {
+      socket.off("payment_order", handleMessage)
+    }
+  }, [socket, paymentInfo?.id])
 
   return (
     <>
@@ -178,8 +205,16 @@ const Checkout = ({ branchId }: { branchId: string }) => {
               <h3 className="text-[#111] text-base md:text-[32px] font-bold">Số sản phẩm</h3>
               <p className="text-[#111] text-base md:text-[32px] font-bold">{totalItems} sản phẩm</p>
             </div>
+            <div className="flex items-center justify-between py-0 md:py-3">
+              <h3 className="text-[#111] text-base md:text-[32px] font-bold">Tổng tiền</h3>
+              <p className="text-[#111] text-base md:text-[32px] font-bold">{formattedSubtotal}</p>
+            </div>
+            <div className="flex items-center justify-between py-0 md:py-3">
+              <h3 className="text-[#111] text-base md:text-[32px] font-bold">Tiền VAT ({settingsData?.vat ?? "0"}%)</h3>
+              <p className="text-[#111] text-base md:text-[32px] font-bold">{formattedVat}</p>
+            </div>
             <div className="flex items-center justify-between py-0 md:py-3 border-t-2 border-[#EEE]">
-              <h3 className="text-[#111] text-base md:text-[40px] font-bold capitalize">Tổng tiền</h3>
+              <h3 className="text-[#111] text-base md:text-[40px] font-bold capitalize">Thành tiền</h3>
               <p className="text-[#CB2527] text-base md:text-[40px] font-bold">{formattedPrice}</p>
             </div>
           </div>
@@ -209,17 +244,18 @@ const Checkout = ({ branchId }: { branchId: string }) => {
           onClose={handlePaymentModalClose}
           totalPrice={totalPrice}
           totalItems={totalItems}
+          vatAmount={vatAmount}
+          vatRate={settingsData?.vat ?? "0"}
+          totalWithVat={totalWithVat}
           orderData={orderData}
           paymentInfo={paymentInfo}
-          customerName={customerInfo.name}
-          onPaymentSuccess={handlePaymentSuccess}
         />
 
         <SuccessModal
           isOpen={isSuccessModalOpen}
-          onClose={() => setIsSuccessModalOpen(false)}
+          onClose={handleSuccessModalClose}
           customerName={customerInfo.name}
-          totalPrice={totalPrice}
+          totalPrice={successTotalPrice}
         />
       </div>
     </>

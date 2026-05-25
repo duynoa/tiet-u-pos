@@ -4,7 +4,7 @@ import { settingsApi } from "./api";
 export const useGetInfoSettings = () => {
   const fetchData = async () => {
     const response = await settingsApi.getInfoSettings();
-    return response.data.data;
+    return response.data;
   };
   return useQuery({
     queryKey: ["info-settings"],
