@@ -1,21 +1,26 @@
 "use client"
 
-import { useSocket } from "@/src/providers/socket-provider"
 import { BranchGate } from "@/src/components/BranchGate"
-import { CartItem, Item, OrderData, PaymentInfo, useGetCheckBranchDetail, useGetInfoSettings, useGetItems } from "@/src/services"
 import { BRANCH_SAVED_EVENT, BRANCH_STORAGE_KEY } from "@/src/providers/app-socket-provider"
+import { useSocket } from "@/src/providers/socket-provider"
+import { CartItem, Item, OrderData, PaymentInfo, useGetCheckBranchDetail, useGetInfoSettings, useGetItems } from "@/src/services"
 import { AnimatePresence } from "motion/react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import toast from "react-hot-toast"
 import Clock from "./Clock"
 import CustomerModal from "./CustomerModal"
 import PaymentModal from "./PaymentModal"
 import { ProductCard } from "./ProductCard"
 import QRScanner from "./QRScanner"
+import SessionTimeoutModal from "./SessionTimeoutModal"
 import SuccessModal, { BillPrintData } from "./SuccessModal"
+
+const SESSION_TIMEOUT_MS = 120_000   // 10 phút
+const SESSION_TIMEOUT_SUCCESS_MS = 60_000  // 1 phút khi SuccessModal đang mở
+const COUNTDOWN_SECONDS = 5
 
 const Checkout = ({ branchId }: { branchId: string }) => {
   const router = useRouter()
@@ -33,6 +38,14 @@ const Checkout = ({ branchId }: { branchId: string }) => {
   const [orderData, setOrderData] = useState<OrderData | null>(null)
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null)
 
+  const [isSessionTimeoutOpen, setIsSessionTimeoutOpen] = useState(false)
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS)
+  const sessionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Refs mirror state để event handlers không bị stale closure
+  const isSessionTimeoutOpenRef = useRef(false)
+  const isSuccessModalOpenRef = useRef(false)
+
   const { socket } = useSocket()
   const { data: settingsData } = useGetInfoSettings()
   const { data: branchData } = useGetCheckBranchDetail(branchId)
@@ -42,8 +55,68 @@ const Checkout = ({ branchId }: { branchId: string }) => {
     { enabled: pendingId !== null }
   )
 
-  // Lưu branch data vào localStorage khi vào thẳng trang Checkout
-  // (trường hợp chưa qua Home page)
+  // Reset idle timer — chỉ setup setTimeout/setInterval (không gọi setState đồng bộ)
+  // Nếu SessionTimeoutModal đang hiện → không reset, user phải bấm nút
+  const resetIdleTimer = useCallback(() => {
+    if (isSessionTimeoutOpenRef.current) return
+    if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current)
+    if (countdownRef.current) clearInterval(countdownRef.current)
+
+    const timeoutMs = isSuccessModalOpenRef.current ? SESSION_TIMEOUT_SUCCESS_MS : SESSION_TIMEOUT_MS
+    sessionTimeoutRef.current = setTimeout(() => {
+      let count = COUNTDOWN_SECONDS
+      setCountdown(count)
+      setIsSessionTimeoutOpen(true)
+      countdownRef.current = setInterval(() => {
+        count -= 1
+        setCountdown(count)
+        if (count <= 0) {
+          if (countdownRef.current) clearInterval(countdownRef.current)
+          setCartItems([])
+          setQuantities({})
+          setDeletedIds([])
+          setIsSuccessModalOpen(false)
+          router.push(`/${branchId}`)
+        }
+      }, 1000)
+    }, timeoutMs)
+  }, [router, branchId])
+
+  // Đồng bộ state → ref để event handlers luôn thấy giá trị mới nhất
+  useEffect(() => { isSessionTimeoutOpenRef.current = isSessionTimeoutOpen }, [isSessionTimeoutOpen])
+  useEffect(() => { isSuccessModalOpenRef.current = isSuccessModalOpen }, [isSuccessModalOpen])
+
+  // Khởi tạo idle timer khi mount
+  useEffect(() => {
+    resetIdleTimer()
+    return () => {
+      if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current)
+      if (countdownRef.current) clearInterval(countdownRef.current)
+    }
+  }, [resetIdleTimer])
+
+  // Khi SuccessModal mở → bắt đầu timeout ngắn hơn ngay lập tức (3 giây)
+  useEffect(() => {
+    if (!isSuccessModalOpen) return
+    resetIdleTimer()
+  }, [isSuccessModalOpen, resetIdleTimer])
+
+  // Lắng nghe hoạt động của người dùng → reset idle timer
+  useEffect(() => {
+    const IDLE_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"] as const
+    const handler = () => resetIdleTimer()
+    IDLE_EVENTS.forEach((e) => window.addEventListener(e, handler, { passive: true }))
+    return () => IDLE_EVENTS.forEach((e) => window.removeEventListener(e, handler))
+  }, [resetIdleTimer])
+
+  const handleSessionContinue = useCallback(() => {
+    // Cập nhật ref ngay (state update async) để resetIdleTimer không bị guard chặn
+    isSessionTimeoutOpenRef.current = false
+    setIsSessionTimeoutOpen(false)
+    setCountdown(COUNTDOWN_SECONDS)
+    resetIdleTimer()
+  }, [resetIdleTimer])
+  
   useEffect(() => {
     if (!branchData) return
     localStorage.setItem(BRANCH_STORAGE_KEY, JSON.stringify(branchData))
@@ -164,6 +237,13 @@ const Checkout = ({ branchId }: { branchId: string }) => {
       console.log(paymentInfo?.id !== undefined )
       console.log(msg.data === paymentInfo?.id)
       if (msg.data !== undefined && paymentInfo?.id !== undefined && msg.data === paymentInfo.id) {
+        // Cập nhật ref ngay để resetIdleTimer (triggered bởi isSuccessModalOpen effect) không bị guard chặn
+        isSessionTimeoutOpenRef.current = false
+        setIsSessionTimeoutOpen(false)
+        setCountdown(COUNTDOWN_SECONDS)
+        if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current)
+        if (countdownRef.current) clearInterval(countdownRef.current)
+
         setIsCustomerModalOpen(false)
         setIsPaymentModalOpen(false)
         setSuccessTotalPrice(totalPrice)
@@ -282,6 +362,12 @@ const Checkout = ({ branchId }: { branchId: string }) => {
           totalPrice={successTotalPrice}
           billData={billData ?? undefined}
           onAfterPrint={handleAfterPrint}
+        />
+
+        <SessionTimeoutModal
+          isOpen={isSessionTimeoutOpen}
+          countdown={countdown}
+          onContinue={handleSessionContinue}
         />
       </div>
     </BranchGate>

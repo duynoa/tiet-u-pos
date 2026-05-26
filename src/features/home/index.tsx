@@ -114,13 +114,15 @@ const HomePage = ({ branchId }: { branchId: string }) => {
               transition={{ duration: 0.7 }}
               className="absolute inset-0"
             >
-              <Image
-                src={slide?.image ?? ""}
-                loading="eager"
-                alt={`banner-${current}`}
-                fill
-                className="object-cover"
-              />
+              {slide?.image && (
+                <Image
+                  src={slide.image}
+                  loading="eager"
+                  alt={`banner-${current}`}
+                  fill
+                  className="object-cover"
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
