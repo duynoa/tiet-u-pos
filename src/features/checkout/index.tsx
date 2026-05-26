@@ -5,7 +5,7 @@ import { BRANCH_SAVED_EVENT, BRANCH_STORAGE_KEY } from "@/src/providers/app-sock
 import { useSocket } from "@/src/providers/socket-provider"
 import { CartItem, Item, OrderData, PaymentInfo, useGetCheckBranchDetail, useGetInfoSettings, useGetItems } from "@/src/services"
 import { AnimatePresence } from "motion/react"
-import Image from "next/image"
+import Image from "next/image" 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
