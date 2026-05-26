@@ -2,7 +2,8 @@
 
 import { useSocket } from "@/src/providers/socket-provider"
 import { BranchGate } from "@/src/components/BranchGate"
-import { CartItem, Item, OrderData, PaymentInfo, useGetInfoSettings, useGetItems } from "@/src/services"
+import { CartItem, Item, OrderData, PaymentInfo, useGetCheckBranchDetail, useGetInfoSettings, useGetItems } from "@/src/services"
+import { BRANCH_SAVED_EVENT, BRANCH_STORAGE_KEY } from "@/src/providers/app-socket-provider"
 import { AnimatePresence } from "motion/react"
 import Image from "next/image"
 import Link from "next/link"
@@ -26,7 +27,7 @@ const Checkout = ({ branchId }: { branchId: string }) => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
-  const [successTotalPrice, setSuccessTotalPrice] = useState(0) // thành tiền (đã VAT)
+  const [successTotalPrice, setSuccessTotalPrice] = useState(0)
   const billDataRef = useRef<BillPrintData | null>(null)
   const [billData, setBillData] = useState<BillPrintData | null>(null)
   const [orderData, setOrderData] = useState<OrderData | null>(null)
@@ -34,11 +35,20 @@ const Checkout = ({ branchId }: { branchId: string }) => {
 
   const { socket } = useSocket()
   const { data: settingsData } = useGetInfoSettings()
+  const { data: branchData } = useGetCheckBranchDetail(branchId)
   const { data: foundItem, isSuccess, isError } = useGetItems(
     branchId,
     pendingId ?? 0,
     { enabled: pendingId !== null }
   )
+
+  // Lưu branch data vào localStorage khi vào thẳng trang Checkout
+  // (trường hợp chưa qua Home page)
+  useEffect(() => {
+    if (!branchData) return
+    localStorage.setItem(BRANCH_STORAGE_KEY, JSON.stringify(branchData))
+    window.dispatchEvent(new Event(BRANCH_SAVED_EVENT))
+  }, [branchData])
 
   const processFoundItem = useCallback((item: Item) => {
     setCartItems((prev) => {
@@ -77,12 +87,7 @@ const Checkout = ({ branchId }: { branchId: string }) => {
   const visibleProducts = cartItems.filter((p) => !deletedIds.includes(p.id))
   const totalItems = visibleProducts.reduce((sum, p) => sum + quantities[p.id], 0)
   const totalPrice = visibleProducts.reduce((sum, p) => sum + p.price * quantities[p.id], 0)
-  const vatRate = settingsData?.vat ? parseFloat(settingsData.vat) : 0
-  const vatAmount = Math.round(totalPrice * vatRate / 100)
-  const totalWithVat = totalPrice + vatAmount
-  const formattedPrice = totalWithVat.toLocaleString("vi-VN") + " ₫"
-  const formattedVat = vatAmount.toLocaleString("vi-VN") + " ₫"
-  const formattedSubtotal = totalPrice.toLocaleString("vi-VN") + " ₫"
+  const formattedPrice = totalPrice.toLocaleString("vi-VN") + " ₫"
 
   const decrement = (id: number) => setQuantities((prev) => ({ ...prev, [id]: Math.max(0, prev[id] - 1) }))
   const increment = (id: number) => setQuantities((prev) => ({ ...prev, [id]: prev[id] + 1 }))
@@ -119,9 +124,9 @@ const Checkout = ({ branchId }: { branchId: string }) => {
         sku: p.sku,
       })),
       totalPrice,
-      vatAmount,
-      vatRate: settingsData?.vat ?? "0",
-      totalWithVat,
+      vatAmount: 0,
+      vatRate: "0",
+      totalWithVat: totalPrice,
       customerName: name,
       customerPhone: phone,
       zaloOaImage: settingsData?.zalo_oa_image,
@@ -148,10 +153,13 @@ const Checkout = ({ branchId }: { branchId: string }) => {
     const handleMessage = (payload: unknown) => {
       const msg = payload as { data?: string | number }
       console.log(msg)
+      console.log(msg.data !== undefined)
+      console.log(paymentInfo?.id !== undefined )
+      console.log(msg.data === paymentInfo?.id)
       if (msg.data !== undefined && paymentInfo?.id !== undefined && msg.data === paymentInfo.id) {
         setIsCustomerModalOpen(false)
         setIsPaymentModalOpen(false)
-        setSuccessTotalPrice(totalWithVat)
+        setSuccessTotalPrice(totalPrice)
         setBillData(billDataRef.current)
         setIsSuccessModalOpen(true)
       }
@@ -160,7 +168,7 @@ const Checkout = ({ branchId }: { branchId: string }) => {
     return () => {
       socket.off("payment_order", handleMessage)
     }
-  }, [socket, paymentInfo?.id, totalWithVat])
+  }, [socket, paymentInfo?.id, totalPrice])
 
   return (
     <BranchGate branchId={branchId}>
@@ -225,16 +233,8 @@ const Checkout = ({ branchId }: { branchId: string }) => {
               <h3 className="text-[#111] text-base md:text-[32px] font-bold">Số sản phẩm</h3>
               <p className="text-[#111] text-base md:text-[32px] font-bold">{totalItems} sản phẩm</p>
             </div>
-            <div className="flex items-center justify-between py-0 md:py-3">
-              <h3 className="text-[#111] text-base md:text-[32px] font-bold">Tổng tiền</h3>
-              <p className="text-[#111] text-base md:text-[32px] font-bold">{formattedSubtotal}</p>
-            </div>
-            <div className="flex items-center justify-between py-0 md:py-3">
-              <h3 className="text-[#111] text-base md:text-[32px] font-bold">Tiền VAT ({settingsData?.vat ?? "0"}%)</h3>
-              <p className="text-[#111] text-base md:text-[32px] font-bold">{formattedVat}</p>
-            </div>
             <div className="flex items-center justify-between py-0 md:py-3 border-t-2 border-[#EEE]">
-              <h3 className="text-[#111] text-base md:text-[40px] font-bold capitalize">Thành tiền</h3>
+              <h3 className="text-[#111] text-base md:text-[40px] font-bold capitalize">Tổng tiền</h3>
               <p className="text-[#CB2527] text-base md:text-[40px] font-bold">{formattedPrice}</p>
             </div>
           </div>
@@ -265,9 +265,6 @@ const Checkout = ({ branchId }: { branchId: string }) => {
           onClose={handlePaymentModalClose}
           totalPrice={totalPrice}
           totalItems={totalItems}
-          vatAmount={vatAmount}
-          vatRate={settingsData?.vat ?? "0"}
-          totalWithVat={totalWithVat}
           orderData={orderData}
           paymentInfo={paymentInfo}
         />

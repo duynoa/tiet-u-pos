@@ -2,12 +2,11 @@
 
 import { useGetCheckBranchDetail, useGetListSlide } from "@/src/services"
 import { BranchGate } from "@/src/components/BranchGate"
+import { BRANCH_SAVED_EVENT, BRANCH_STORAGE_KEY } from "@/src/providers/app-socket-provider"
 import { AnimatePresence, motion } from "motion/react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-
-const STORAGE_KEY = "branch"
 
 const HomePage = ({ branchId }: { branchId: string }) => {
   const router = useRouter()
@@ -20,7 +19,8 @@ const HomePage = ({ branchId }: { branchId: string }) => {
 
   useEffect(() => {
     if (!branchData) return
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(branchData))
+    localStorage.setItem(BRANCH_STORAGE_KEY, JSON.stringify(branchData))
+    window.dispatchEvent(new Event(BRANCH_SAVED_EVENT))
   }, [branchData, branchId])
 
   useEffect(() => {

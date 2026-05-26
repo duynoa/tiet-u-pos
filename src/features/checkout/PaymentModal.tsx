@@ -10,9 +10,6 @@ interface PaymentModalProps {
   onClose: () => void
   totalPrice: number
   totalItems: number
-  vatAmount: number
-  vatRate: string
-  totalWithVat: number
   orderData: OrderData | null
   paymentInfo: PaymentInfo | null
 }
@@ -22,14 +19,12 @@ const PaymentModal = memo(function PaymentModal({
   onClose,
   totalPrice,
   totalItems,
-  vatAmount,
-  vatRate,
-  totalWithVat,
   orderData,
   paymentInfo,
 }: PaymentModalProps) {
   const { mutate: deleteOrder } = useDeleteOrder()
   const displayItems = orderData?.items ?? []
+  console.log(paymentInfo)
   return (
     <AnimatePresence>
       {isOpen && (
@@ -111,16 +106,8 @@ const PaymentModal = memo(function PaymentModal({
                       <p className="text-[#262626] text-lg font-semibold">{totalItems} sản phẩm</p>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-[#262626] text-lg font-semibold">Tổng tiền</p>
-                      <p className="text-[#262626] text-lg font-semibold">{totalPrice.toLocaleString("vi-VN")} ₫</p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[#262626] text-lg font-semibold">Tiền VAT ({vatRate}%)</p>
-                      <p className="text-[#262626] text-lg font-semibold">{vatAmount.toLocaleString("vi-VN")} ₫</p>
-                    </div>
-                    <div className="flex items-center justify-between border-t border-[#CECECE] pt-2">
                       <p className="text-[#111] text-3xl font-bold">Thành tiền</p>
-                      <p className="text-[#CB2527] text-3xl font-bold">{totalWithVat.toLocaleString("vi-VN")} ₫</p>
+                      <p className="text-[#CB2527] text-3xl font-bold">{totalPrice.toLocaleString("vi-VN")} ₫</p>
                     </div>
                   </div>
                 </div>
@@ -128,7 +115,7 @@ const PaymentModal = memo(function PaymentModal({
                 <div className="px-5 py-3 flex flex-col items-center gap-6">
                   <div className="flex flex-col justify-center items-center gap-2">
                     <p className="text-[#262626] text-base font-semibold">Quét QR để thanh toán</p>
-                    <p className="text-[#CB2527] text-2xl font-bold">{totalWithVat.toLocaleString("vi-VN")} ₫</p>
+                    <p className="text-[#CB2527] text-2xl font-bold">{totalPrice.toLocaleString("vi-VN")} ₫</p>
                   </div>
                   <div className="flex flex-col items-center gap-4">
                     <div className="relative bg-white shadow-[0_4px_6px_-1px_rgba(0,0,0,0.10),0_2px_4px_-2px_rgba(0,0,0,0.10)] rounded-xl">

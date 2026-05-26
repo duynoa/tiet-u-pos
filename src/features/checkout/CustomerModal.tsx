@@ -151,8 +151,7 @@ const CustomerModal = ({
                   id: apiData?.id ?? apiData?.order_id,
                   items: apiData?.items ?? orderItems,
                 }
-                const paymentInfo: PaymentInfo | null =
-                  apiData?.info_payment ?? null
+                const paymentInfo: PaymentInfo | null = apiData?.data ?? null
                 onContinue(name, phone, orderData, paymentInfo)
               },
               onError: () => {

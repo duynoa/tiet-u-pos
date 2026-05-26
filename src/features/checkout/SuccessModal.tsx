@@ -1,8 +1,8 @@
 "use client"
 
 import { AnimatePresence, motion } from "motion/react"
-import { useEffect, useRef, useMemo, useState } from "react"
-import Confetti from "react-confetti"
+import Image from "next/image"
+import { useMemo, useRef } from "react"
 import toast from "react-hot-toast"
 import BillPrint from "./BillPrint"
 
@@ -41,8 +41,7 @@ const SuccessModal = ({ isOpen, onClose, totalPrice, billData }: SuccessModalPro
   const formattedPrice = totalPrice.toLocaleString("vi-VN") + " ₫"
   const modalRef = useRef<HTMLDivElement>(null)
   const printContentRef = useRef<HTMLDivElement>(null)
-  const [confettiSize, setConfettiSize] = useState({ width: 0, height: 0 })
-  
+
   const currentTime = useMemo(() => {
     if (!isOpen) return ""
     const now = new Date()
@@ -54,19 +53,14 @@ const SuccessModal = ({ isOpen, onClose, totalPrice, billData }: SuccessModalPro
     return `${day}/${month}/${year}, ${hours}:${minutes}`
   }, [isOpen])
 
-  useEffect(() => {
-    if (isOpen && modalRef.current) {
-      const rect = modalRef.current.getBoundingClientRect()
-      setConfettiSize({ width: rect.width * 1.3, height: rect.height * 2 })
-    }
-  }, [isOpen])
-
   const handlePrintBill = async () => {
     if (!printContentRef.current || !billData) return
 
+    const popupToastId = toast.loading("Đang mở cửa sổ in...")
     const printWindow = window.open("", "_blank")
+    toast.dismiss(popupToastId)
     if (!printWindow) {
-      toast.error("Không thể mở cửa sổ in. Vui lòng kiểm tra popup blocker.")
+      toast.error("Trình duyệt đã chặn popup. Vui lòng cho phép popup cho trang này rồi thử lại.", { duration: 6000 })
       return
     }
 
@@ -127,16 +121,7 @@ const SuccessModal = ({ isOpen, onClose, totalPrice, billData }: SuccessModalPro
               className="relative flex flex-col items-center gap-8 bg-white px-10 py-12 rounded-3xl w-full max-w-3xl pointer-events-auto overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              {confettiSize.width > 0 && (
-                <Confetti
-                  width={confettiSize.width}
-                  height={confettiSize.height}
-                  numberOfPieces={400}
-                  recycle={false}
-                  colors={["#CB2527", "#F25B5D", "#56C348", "#FFD700", "#FFFFFF"]}
-                />
-              )}
-
+              <Image src="/tung-hoa.webp" alt="Zalo OA" width={500} height={500} className="w-full h-auto absolute inset-0 pointer-events-none" />
               <div className="w-full flex flex-col items-center gap-8">
                 <h2 className="text-[#111] text-[32px] font-bold capitalize">Thanh toán thành công</h2>
                 <div className="bg-[#CCEFD8CC] p-6 rounded-full">

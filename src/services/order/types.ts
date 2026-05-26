@@ -22,7 +22,7 @@ export interface PaymentInfo {
   id?: string
   qr?: string
   info_payment?: {
-    qr?: string
+    qr: string
     bank?: {
       account_bank?: string
       account_number?: string
