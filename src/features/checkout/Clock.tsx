@@ -22,7 +22,7 @@ const Clock = () => {
   return (
     <div className="flex flex-col items-end gap-0 md:gap-3">
       <p className="text-white text-base md:text-[32px] font-bold">{timeString}</p>
-      <p className="text-white text-sm md:text-2xl">{dateString}</p>
+      {/* <p className="text-white text-sm md:text-2xl">{dateString}</p> */}
     </div>
   )
 }
