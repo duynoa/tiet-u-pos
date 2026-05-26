@@ -16,9 +16,6 @@ export interface BillPrintData {
   orderId?: string
   items: Array<{ id: number; name: string; quantity: number; price: number; sku?: string }>
   totalPrice: number
-  vatAmount: number
-  vatRate: string
-  totalWithVat: number
   customerName?: string
   customerPhone?: string
   storeName?: string
@@ -35,9 +32,10 @@ interface SuccessModalProps {
   onClose: () => void
   totalPrice: number
   billData?: BillPrintData
+  onAfterPrint?: () => void
 }
 
-const SuccessModal = ({ isOpen, onClose, totalPrice, billData }: SuccessModalProps) => {
+const SuccessModal = ({ isOpen, onClose, totalPrice, billData, onAfterPrint }: SuccessModalProps) => {
   const formattedPrice = totalPrice.toLocaleString("vi-VN") + " ₫"
   const modalRef = useRef<HTMLDivElement>(null)
   const printContentRef = useRef<HTMLDivElement>(null)
@@ -53,19 +51,32 @@ const SuccessModal = ({ isOpen, onClose, totalPrice, billData }: SuccessModalPro
     return `${day}/${month}/${year}, ${hours}:${minutes}`
   }, [isOpen])
 
-  const handlePrintBill = async () => {
+  const handlePrintBill = () => {
     if (!printContentRef.current || !billData) return
 
-    const popupToastId = toast.loading("Đang mở cửa sổ in...")
-    const printWindow = window.open("", "_blank")
-    toast.dismiss(popupToastId)
-    if (!printWindow) {
-      toast.error("Trình duyệt đã chặn popup. Vui lòng cho phép popup cho trang này rồi thử lại.", { duration: 6000 })
+    const html = printContentRef.current.innerHTML
+
+    // Kiosk printing: dùng iframe ẩn thay vì popup
+    // Khi Chrome chạy với flag --kiosk-printing, window.print() sẽ
+    // tự động in ra default printer mà KHÔNG hiện dialog chọn printer
+    const iframe = document.createElement("iframe")
+    iframe.style.position = "fixed"
+    iframe.style.top = "-10000px"
+    iframe.style.left = "-10000px"
+    iframe.style.width = "80mm"
+    iframe.style.height = "0"
+    iframe.style.border = "none"
+    document.body.appendChild(iframe)
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+    if (!iframeDoc) {
+      toast.error("Không thể tạo khung in. Vui lòng thử lại.")
+      document.body.removeChild(iframe)
       return
     }
 
-    const html = printContentRef.current.innerHTML
-    printWindow.document.write(`
+    iframeDoc.open()
+    iframeDoc.write(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -75,14 +86,15 @@ const SuccessModal = ({ isOpen, onClose, totalPrice, billData }: SuccessModalPro
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: 'Inter', sans-serif; }
+            @page { size: 80mm auto; margin: 0; }
           </style>
         </head>
         <body>${html}</body>
       </html>
     `)
-    printWindow.document.close()
+    iframeDoc.close()
 
-    const images = printWindow.document.images
+    const images = iframeDoc.images
     const imagePromises = Array.from(images).map((img) => {
       if (img.complete) return Promise.resolve()
       return new Promise((resolve) => {
@@ -91,9 +103,14 @@ const SuccessModal = ({ isOpen, onClose, totalPrice, billData }: SuccessModalPro
       })
     })
 
-    Promise.all([printWindow.document.fonts.ready, ...imagePromises]).then(() => {
-      printWindow.focus()
-      printWindow.print()
+    Promise.all([iframeDoc.fonts.ready, ...imagePromises]).then(() => {
+      iframe.contentWindow?.focus()
+      iframe.contentWindow?.print()
+      // Cleanup iframe và gọi callback sau khi in xong
+      setTimeout(() => {
+        document.body.removeChild(iframe)
+        onAfterPrint?.()
+      }, 3000)
     })
   }
 

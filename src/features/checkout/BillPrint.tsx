@@ -20,9 +20,6 @@ interface BillPrintProps {
   orderId?: string
   items: BillItem[]
   totalPrice: number
-  vatAmount: number
-  vatRate: string
-  totalWithVat: number
   customerName?: string
   customerPhone?: string
   storeName?: string
@@ -44,9 +41,6 @@ const DEFAULT_HOTLINES = ["0902.092.052", "0983.092.052"]
 const BillPrint = forwardRef<HTMLDivElement, BillPrintProps>(({
   items,
   totalPrice,
-  vatAmount,
-  vatRate,
-  totalWithVat,
   customerName,
   customerPhone,
   storeName = DEFAULT_STORE_NAME,
@@ -132,16 +126,8 @@ const BillPrint = forwardRef<HTMLDivElement, BillPrintProps>(({
 
       <div style={styles.totalBlock}>
         <div style={styles.totalRow}>
-          <span>Tổng tiền</span>
-          <span style={styles.totalPrice}>{totalPrice.toLocaleString("vi-VN")}đ</span>
-        </div>
-        <div style={styles.totalRow}>
-          <span>Tiền VAT ({vatRate}%)</span>
-          <span style={styles.totalPrice}>{vatAmount.toLocaleString("vi-VN")}đ</span>
-        </div>
-        <div style={styles.totalRow}>
           <span>Thành tiền</span>
-          <span style={styles.totalPrice}>{totalWithVat.toLocaleString("vi-VN")} đ</span>
+          <span style={styles.totalPrice}>{totalPrice.toLocaleString("vi-VN")}đ</span>
         </div>
       </div>
 

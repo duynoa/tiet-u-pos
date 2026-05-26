@@ -124,9 +124,6 @@ const Checkout = ({ branchId }: { branchId: string }) => {
         sku: p.sku,
       })),
       totalPrice,
-      vatAmount: 0,
-      vatRate: "0",
-      totalWithVat: totalPrice,
       customerName: name,
       customerPhone: phone,
       zaloOaImage: settingsData?.zalo_oa_image,
@@ -145,7 +142,17 @@ const Checkout = ({ branchId }: { branchId: string }) => {
     setQuantities({})
     setDeletedIds([])
     setIsSuccessModalOpen(false)
-  }, [])
+    router.push(`/${branchId}`)
+  }, [router, branchId])
+
+  // Callback sau khi in bill xong: đóng modal, xóa dữ liệu, về trang chủ
+  const handleAfterPrint = useCallback(() => {
+    setCartItems([])
+    setQuantities({})
+    setDeletedIds([])
+    setIsSuccessModalOpen(false)
+    router.push(`/${branchId}`)
+  }, [router, branchId])
 
   // Lắng nghe event từ server — đóng CustomerModal/PaymentModal, mở SuccessModal
   useEffect(() => {
@@ -274,6 +281,7 @@ const Checkout = ({ branchId }: { branchId: string }) => {
           onClose={handleSuccessModalClose}
           totalPrice={successTotalPrice}
           billData={billData ?? undefined}
+          onAfterPrint={handleAfterPrint}
         />
       </div>
     </BranchGate>
